@@ -154,6 +154,22 @@
             <div class="items-actions">
               <button
                 class="btn btn-secondary"
+                id="exportJsonBtn"
+                title="Export to JSON"
+              >
+                <span class="btn-icon">💾</span>
+                Export JSON
+              </button>
+              <button
+                class="btn btn-secondary"
+                id="importJsonBtn"
+                title="Import from JSON"
+              >
+                <span class="btn-icon">📂</span>
+                Import Data
+              </button>
+              <button
+                class="btn btn-secondary"
                 id="exportCsvBtn"
                 title="Export to CSV"
               >
@@ -168,14 +184,7 @@
                 <span class="btn-icon">📄</span>
                 Export PDF
               </button>
-              <button
-                class="btn btn-secondary"
-                id="exportJsonBtn"
-                title="Export to JSON"
-              >
-                <span class="btn-icon">📄</span>
-                Export JSON
-              </button>
+              <input type="file" id="importFile" accept=".json" style="display: none;" />
               <button
                 class="btn btn-danger"
                 id="clearAllBtn"

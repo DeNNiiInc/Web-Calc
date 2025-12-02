@@ -21,6 +21,8 @@ const itemCount = document.getElementById("itemCount");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const exportJsonBtn = document.getElementById("exportJsonBtn");
 const exportPdfBtn = document.getElementById("exportPdfBtn");
+const importJsonBtn = document.getElementById("importJsonBtn");
+const importFile = document.getElementById("importFile");
 const clearAllBtn = document.getElementById("clearAllBtn");
 
 // ============================================
@@ -48,6 +50,10 @@ function attachEventListeners() {
   exportCsvBtn.addEventListener("click", exportToCSV);
   exportJsonBtn.addEventListener("click", exportToJSON);
   exportPdfBtn.addEventListener("click", exportToPDF);
+  
+  // Import button
+  importJsonBtn.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", importFromJSON);
 
   // Clear all button
   clearAllBtn.addEventListener("click", handleClearAll);
@@ -415,6 +421,46 @@ function exportToJSON() {
   const json = JSON.stringify(data, null, 2);
   downloadFile(json, "pricing-calculator.json", "application/json");
   showNotification("Exported to JSON successfully!");
+}
+
+function importFromJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      
+      if (!data.items || !Array.isArray(data.items)) {
+        throw new Error("Invalid file format");
+      }
+
+      if (confirm("This will overwrite your current items. Are you sure you want to proceed?")) {
+        items = data.items;
+        
+        // Restore margin if available
+        if (data.summary && data.summary.marginPercentage) {
+          marginPercentage = data.summary.marginPercentage;
+          marginSlider.value = marginPercentage;
+          marginValue.textContent = `${marginPercentage}%`;
+        }
+
+        saveToLocalStorage();
+        renderItems();
+        updateSummary();
+        showNotification("Data imported successfully!");
+      }
+    } catch (error) {
+      console.error("Import Error:", error);
+      alert("Failed to import data. Please check if the file is a valid JSON export.");
+    }
+    
+    // Reset file input
+    importFile.value = '';
+  };
+  
+  reader.readAsText(file);
 }
 
 // ============================================

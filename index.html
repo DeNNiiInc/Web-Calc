@@ -16,6 +16,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   </head>
   <body>
     <div class="container">
@@ -73,7 +74,7 @@
             </div>
 
             <div class="form-group">
-              <label for="itemPrice" class="form-label">Price ($) *</label>
+              <label for="itemPrice" class="form-label">Price ($) INC GST *</label>
               <input
                 type="number"
                 id="itemPrice"
@@ -158,6 +159,14 @@
               >
                 <span class="btn-icon">📊</span>
                 Export CSV
+              </button>
+              <button
+                class="btn btn-secondary"
+                id="exportPdfBtn"
+                title="Export to PDF"
+              >
+                <span class="btn-icon">📄</span>
+                Export PDF
               </button>
               <button
                 class="btn btn-secondary"

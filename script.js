@@ -20,6 +20,7 @@ const finalTotal = document.getElementById("finalTotal");
 const itemCount = document.getElementById("itemCount");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const exportJsonBtn = document.getElementById("exportJsonBtn");
+const exportPdfBtn = document.getElementById("exportPdfBtn");
 const clearAllBtn = document.getElementById("clearAllBtn");
 
 // ============================================
@@ -43,8 +44,10 @@ function attachEventListeners() {
   marginSlider.addEventListener("input", handleMarginChange);
 
   // Export buttons
+  // Export buttons
   exportCsvBtn.addEventListener("click", exportToCSV);
   exportJsonBtn.addEventListener("click", exportToJSON);
+  exportPdfBtn.addEventListener("click", exportToPDF);
 
   // Clear all button
   clearAllBtn.addEventListener("click", handleClearAll);
@@ -176,7 +179,7 @@ function renderItems() {
                     }
                 </div>
             </div>
-            <div class="item-price">$${item.price.toFixed(2)}</div>
+            <div class="item-price">$${item.price.toFixed(2)} <span style="font-size: 0.5em; opacity: 0.7;">INC GST</span></div>
             <div class="item-actions">
                 <button class="btn btn-secondary btn-small" onclick="handleEditItem(${
                   item.id
@@ -255,6 +258,114 @@ function loadFromLocalStorage() {
 // ============================================
 // Export Functions
 // ============================================
+function exportToPDF() {
+  if (items.length === 0) {
+    alert("No items to export.");
+    return;
+  }
+
+  // Create a clone of the main content to format for PDF
+  const element = document.createElement("div");
+  element.innerHTML = `
+        <div style="padding: 20px; font-family: sans-serif; color: #000;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #667eea; margin: 0;">Pricing Calculator</h1>
+                <p style="color: #666; margin: 5px 0;">Beyond Cloud Technology</p>
+                <p style="color: #999; font-size: 12px;">Generated on ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">Summary</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666;">Base Total:</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: bold;">${
+                          baseTotal.textContent
+                        }</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666;">Margin (${marginPercentage}%):</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: bold;">${
+                          marginAmount.textContent
+                        }</td>
+                    </tr>
+                    <tr style="border-top: 2px solid #eee;">
+                        <td style="padding: 12px 0; font-size: 18px; font-weight: bold; color: #333;">Final Total:</td>
+                        <td style="padding: 12px 0; text-align: right; font-size: 18px; font-weight: bold; color: #667eea;">${
+                          finalTotal.textContent
+                        }</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div>
+                <h2 style="border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">Items List</h2>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Product</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Price (INC GST)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items
+                          .map(
+                            (item) => `
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                    <div style="font-weight: bold;">${
+                                      item.name
+                                    }</div>
+                                    ${
+                                      item.url
+                                        ? `<div style="font-size: 12px; color: #666;">${item.url}</div>`
+                                        : ""
+                                    }
+                                </td>
+                                <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">$${item.price.toFixed(
+                                  2
+                                )}</td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+  // Fix: Append to body to ensure html2canvas can render it
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
+  element.style.top = '0';
+  document.body.appendChild(element);
+
+  const opt = {
+    margin: 10,
+    filename: "pricing-calculator-export.pdf",
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+  };
+
+  html2pdf()
+    .set(opt)
+    .from(element)
+    .save()
+    .then(() => {
+      document.body.removeChild(element);
+      showNotification("Exported to PDF successfully!");
+    })
+    .catch((err) => {
+      if (document.body.contains(element)) {
+        document.body.removeChild(element);
+      }
+      console.error("PDF Export Error:", err);
+      alert("Failed to export PDF. Please try again.");
+    });
+}
+
 function exportToCSV() {
   if (items.length === 0) {
     alert("No items to export.");

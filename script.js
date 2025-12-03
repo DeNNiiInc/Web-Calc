@@ -14,6 +14,14 @@ const CORS_PROXIES = [
   { name: "CodeTabs", url: (targetUrl) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}` }
 ];
 
+// Default fallback models
+const DEFAULT_MODELS = [
+  { id: "gpt-4o-mini", name: "gpt-4o-mini (Recommended)" },
+  { id: "gpt-4o", name: "gpt-4o" },
+  { id: "gpt-4-turbo", name: "gpt-4-turbo" },
+  { id: "gpt-3.5-turbo", name: "gpt-3.5-turbo" }
+];
+
 // ============================================
 // DOM Elements
 // ============================================
@@ -531,6 +539,9 @@ function openSettingsModal() {
   openaiApiKeyInput.value = openaiApiKey;
   openaiModelInput.value = openaiModel;
   enableAiScrapingInput.checked = aiScrapingEnabled;
+  
+  // Fetch and populate models dynamically
+  fetchAndPopulateModels();
 }
 
 function closeSettingsModal() {
@@ -687,6 +698,119 @@ async function pasteFromClipboard(targetInput) {
     console.error("Clipboard error:", error);
     alert("Unable to access clipboard. Please ensure you've granted clipboard permissions.");
   }
+}
+
+// ============================================
+// Dynamic Model List Functions
+// ============================================
+async function fetchAndPopulateModels() {
+  // Check cache first
+  const cachedData = localStorage.getItem("openaiModelsCache");
+  const cacheTimestamp = localStorage.getItem("openaiModelsCacheTime");
+  
+  const now = Date.now();
+  const twentyFourHours = 24 * 60 * 60 * 1000;
+  
+  // Use cache if it's less than 24 hours old
+  if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < twentyFourHours) {
+    console.log("Using cached models");
+    const models = JSON.parse(cachedData);
+    populateModelDropdown(models);
+    return;
+  }
+  
+  // Fetch fresh models if we have an API key
+  if (openaiApiKey) {
+    try {
+      const models = await fetchAvailableModels();
+      
+      // Cache the results
+      localStorage.setItem("openaiModelsCache", JSON.stringify(models));
+      localStorage.setItem("openaiModelsCacheTime", now.toString());
+      
+      populateModelDropdown(models);
+      console.log("Fetched and cached fresh models");
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      // Use default models as fallback
+      populateModelDropdown(DEFAULT_MODELS);
+    }
+  } else {
+    // No API key, use defaults
+    populateModelDropdown(DEFAULT_MODELS);
+  }
+}
+
+async function fetchAvailableModels() {
+  const response = await fetch("https://api.openai.com/v1/models", {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${openaiApiKey}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error("Failed to fetch models");
+  }
+  
+  const data = await response.json();
+  
+  // Filter to only GPT chat models and sort by newest first
+  const gptModels = data.data
+    .filter(model => {
+      const id = model.id.toLowerCase();
+      return id.startsWith('gpt-4') || id.startsWith('gpt-3.5-turbo');
+    })
+    .map(model => ({
+      id: model.id,
+      name: model.id
+    }))
+    .sort((a, b) => {
+      // Sort priority: gpt-4o-mini, gpt-4o, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+      const priority = {
+        'gpt-4o-mini': 0,
+        'gpt-4o': 1,
+        'gpt-4-turbo': 2,
+        'gpt-4': 3,
+        'gpt-3.5-turbo': 4
+      };
+      
+      const aPriority = priority[a.id] ?? 999;
+      const bPriority = priority[b.id] ?? 999;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // If same priority, sort alphabetically
+      return a.id.localeCompare(b.id);
+    });
+  
+  // Add "(Recommended)" to gpt-4o-mini
+  const models = gptModels.map(model => {
+    if (model.id === 'gpt-4o-mini') {
+      return { ...model, name: `${model.id} (Recommended)` };
+    }
+    return model;
+  });
+  
+  return models.length > 0 ? models : DEFAULT_MODELS;
+}
+
+function populateModelDropdown(models) {
+  // Clear existing options
+  openaiModelInput.innerHTML = '';
+  
+  // Add models to dropdown
+  models.forEach(model => {
+    const option = document.createElement('option');
+    option.value = model.id;
+    option.textContent = model.name;
+    openaiModelInput.appendChild(option);
+  });
+  
+  // Set current selection
+  openaiModelInput.value = openaiModel;
 }
 
 async function analyzeWithOpenAI(htmlContent) {

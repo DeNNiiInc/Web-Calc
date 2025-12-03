@@ -4,7 +4,7 @@
 let items = [];
 let marginPercentage = 10;
 let openaiApiKey = "";
-let openaiModel = "gpt-4o-mini";
+let openaiModel = "gpt-4o-mini"; // Cheapest and most appropriate for simple scraping tasks
 let aiScrapingEnabled = true;
 
 // CORS Proxy services to try in order
@@ -16,7 +16,7 @@ const CORS_PROXIES = [
 
 // Default fallback models
 const DEFAULT_MODELS = [
-  { id: "gpt-4o-mini", name: "gpt-4o-mini (Recommended)" },
+  { id: "gpt-4o-mini", name: "gpt-4o-mini (Best for this task)" },
   { id: "gpt-4o", name: "gpt-4o" },
   { id: "gpt-4-turbo", name: "gpt-4-turbo" },
   { id: "gpt-3.5-turbo", name: "gpt-3.5-turbo" }
@@ -578,9 +578,16 @@ async function validateApiKey() {
     });
 
     if (response.ok) {
+      // Save the API key immediately on successful validation
+      openaiApiKey = apiKey;
+      saveToLocalStorage();
+      
       validateApiKeyBtn.textContent = "✓";
       validateApiKeyBtn.style.backgroundColor = "#10b981";
-      showNotification("✓ API Key is valid!");
+      showNotification("✓ API Key is valid and saved!");
+      
+      // Refresh model list with the validated key
+      fetchAndPopulateModels();
       
       setTimeout(() => {
         validateApiKeyBtn.style.backgroundColor = "";

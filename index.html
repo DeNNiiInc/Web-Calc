@@ -250,6 +250,16 @@
             <input type="checkbox" id="enableAiScraping" checked />
             <label for="enableAiScraping">Enable AI Auto-Fill</label>
           </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="enableProxy" />
+            <label for="enableProxy">Enable CORS Proxy</label>
+          </div>
+          <div class="form-group" id="proxyUrlGroup" style="display: none;">
+            <label for="proxyUrl" class="form-label">Proxy URL</label>
+            <input type="url" id="proxyUrl" class="form-input" placeholder="http://localhost:3000" value="http://localhost:3000" />
+            <p class="help-text">Requires local proxy server running.</p>
+          </div>
         </div>
         <div class="modal-footer">
           <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>

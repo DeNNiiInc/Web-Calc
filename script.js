@@ -759,36 +759,53 @@ async function fetchAvailableModels() {
   const gptModels = data.data
     .filter(model => {
       const id = model.id.toLowerCase();
-      return id.startsWith('gpt-4') || id.startsWith('gpt-3.5-turbo');
+      return id.startsWith('gpt-5') || id.startsWith('gpt-4') || id.startsWith('gpt-3.5-turbo');
     })
     .map(model => ({
       id: model.id,
       name: model.id
     }))
     .sort((a, b) => {
-      // Sort priority: gpt-4o-mini, gpt-4o, gpt-4-turbo, gpt-4, gpt-3.5-turbo
-      const priority = {
-        'gpt-4o-mini': 0,
-        'gpt-4o': 1,
-        'gpt-4-turbo': 2,
-        'gpt-4': 3,
-        'gpt-3.5-turbo': 4
+      // Extract version number (5, 4, 3.5)
+      const getVersion = (id) => {
+        if (id.startsWith('gpt-5')) return 5;
+        if (id.startsWith('gpt-4')) return 4;
+        if (id.startsWith('gpt-3.5')) return 3.5;
+        return 0;
       };
       
-      const aPriority = priority[a.id] ?? 999;
-      const bPriority = priority[b.id] ?? 999;
+      const aVersion = getVersion(a.id);
+      const bVersion = getVersion(b.id);
+      
+      // Sort by version (newest first)
+      if (aVersion !== bVersion) {
+        return bVersion - aVersion; // 5 > 4 > 3.5
+      }
+      
+      // Within same version, sort by model variant
+      // Priority: base model > mini > nano > turbo
+      const getVariantPriority = (id) => {
+        if (id.includes('mini')) return 1;
+        if (id.includes('nano')) return 2;
+        if (id.includes('turbo')) return 3;
+        return 0; // base model (e.g., gpt-5.1, gpt-4.1)
+      };
+      
+      const aPriority = getVariantPriority(a.id);
+      const bPriority = getVariantPriority(b.id);
       
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
       }
       
-      // If same priority, sort alphabetically
-      return a.id.localeCompare(b.id);
+      // If same priority, sort alphabetically (descending for version numbers like 5.1 > 5.0)
+      return b.id.localeCompare(a.id);
     });
   
-  // Add "(Recommended)" to gpt-4o-mini
+  // Add "(Recommended)" to the newest/best model
   const models = gptModels.map(model => {
-    if (model.id === 'gpt-4o-mini') {
+    // Recommend the first model in the sorted list (newest)
+    if (model.id === gptModels[0]?.id) {
       return { ...model, name: `${model.id} (Recommended)` };
     }
     return model;

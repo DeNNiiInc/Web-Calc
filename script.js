@@ -6,8 +6,6 @@ let marginPercentage = 10;
 let openaiApiKey = "";
 let openaiModel = "gpt-4o-mini";
 let aiScrapingEnabled = true;
-let proxyEnabled = false;
-let proxyUrl = "http://localhost:3000";
 
 // ============================================
 // DOM Elements
@@ -36,9 +34,7 @@ const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const openaiApiKeyInput = document.getElementById("openaiApiKey");
 const openaiModelInput = document.getElementById("openaiModel");
 const enableAiScrapingInput = document.getElementById("enableAiScraping");
-const enableProxyInput = document.getElementById("enableProxy");
-const proxyUrlInput = document.getElementById("proxyUrl");
-const proxyUrlGroup = document.getElementById("proxyUrlGroup");
+const validateApiKeyBtn = document.getElementById("validateApiKeyBtn");
 const autoFillBtn = document.getElementById("autoFillBtn");
 
 // ============================================
@@ -82,8 +78,8 @@ function attachEventListeners() {
     if (e.target === settingsModal) closeSettingsModal();
   });
 
-  // Proxy Toggle
-  enableProxyInput.addEventListener("change", toggleProxyUrlVisibility);
+  // API Key Validation
+  validateApiKeyBtn.addEventListener("click", validateApiKey);
 
   // Auto-Fill
   autoFillBtn.addEventListener("click", handleAutoFill);
@@ -268,8 +264,6 @@ function saveToLocalStorage() {
     localStorage.setItem("pricingCalcApiKey", openaiApiKey);
     localStorage.setItem("pricingCalcModel", openaiModel);
     localStorage.setItem("pricingCalcAiEnabled", aiScrapingEnabled.toString());
-    localStorage.setItem("pricingCalcProxyEnabled", proxyEnabled.toString());
-    localStorage.setItem("pricingCalcProxyUrl", proxyUrl);
   } catch (error) {
     console.error("Error saving to localStorage:", error);
   }
@@ -306,20 +300,6 @@ function loadFromLocalStorage() {
     if (savedAiEnabled !== null) {
       aiScrapingEnabled = savedAiEnabled === "true";
       enableAiScrapingInput.checked = aiScrapingEnabled;
-    }
-
-    const savedProxyEnabled = localStorage.getItem("pricingCalcProxyEnabled");
-    const savedProxyUrl = localStorage.getItem("pricingCalcProxyUrl");
-
-    if (savedProxyEnabled !== null) {
-      proxyEnabled = savedProxyEnabled === "true";
-      enableProxyInput.checked = proxyEnabled;
-      toggleProxyUrlVisibility();
-    }
-
-    if (savedProxyUrl) {
-      proxyUrl = savedProxyUrl;
-      proxyUrlInput.value = savedProxyUrl;
     }
   } catch (error) {
     console.error("Error loading from localStorage:", error);
@@ -538,29 +518,64 @@ function openSettingsModal() {
   openaiApiKeyInput.value = openaiApiKey;
   openaiModelInput.value = openaiModel;
   enableAiScrapingInput.checked = aiScrapingEnabled;
-  enableProxyInput.checked = proxyEnabled;
-  proxyUrlInput.value = proxyUrl;
-  toggleProxyUrlVisibility();
 }
 
 function closeSettingsModal() {
   settingsModal.classList.remove("show");
 }
 
-function toggleProxyUrlVisibility() {
-  proxyUrlGroup.style.display = enableProxyInput.checked ? "block" : "none";
-}
-
 function saveSettings() {
   openaiApiKey = openaiApiKeyInput.value.trim();
   openaiModel = openaiModelInput.value;
   aiScrapingEnabled = enableAiScrapingInput.checked;
-  proxyEnabled = enableProxyInput.checked;
-  proxyUrl = proxyUrlInput.value.trim();
   
   saveToLocalStorage();
   closeSettingsModal();
   showNotification("Settings saved successfully!");
+}
+
+async function validateApiKey() {
+  const apiKey = openaiApiKeyInput.value.trim();
+  
+  if (!apiKey) {
+    alert("Please enter an API key first.");
+    return;
+  }
+
+  validateApiKeyBtn.classList.add("loading");
+  validateApiKeyBtn.textContent = "...";
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      }
+    });
+
+    if (response.ok) {
+      validateApiKeyBtn.textContent = "✓";
+      validateApiKeyBtn.style.backgroundColor = "#10b981";
+      showNotification("✓ API Key is valid!");
+      
+      setTimeout(() => {
+        validateApiKeyBtn.style.backgroundColor = "";
+      }, 2000);
+    } else {
+      throw new Error("Invalid API key");
+    }
+  } catch (error) {
+    validateApiKeyBtn.textContent = "✗";
+    validateApiKeyBtn.style.backgroundColor = "#ef4444";
+    alert("✗ Invalid API Key. Please check and try again.");
+    
+    setTimeout(() => {
+      validateApiKeyBtn.textContent = "✓";
+      validateApiKeyBtn.style.backgroundColor = "";
+    }, 2000);
+  } finally {
+    validateApiKeyBtn.classList.remove("loading");
+  }
 }
 
 async function handleAutoFill() {
@@ -584,44 +599,18 @@ async function handleAutoFill() {
   autoFillBtn.classList.add("loading");
   
   try {
-    let htmlText = "";
-
-    if (proxyEnabled) {
-      // Use Proxy
-      if (!proxyUrl) {
-        throw new Error("Proxy URL is missing. Please check Settings.");
-      }
-
-      const response = await fetch(proxyUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUrl: url })
-      });
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || "Proxy request failed");
-      }
-      
-      htmlText = data.body;
-
-    } else {
-      // Direct Fetch (Subject to CORS)
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch page content");
-      htmlText = await response.text();
-    }
+    // Use public CORS proxy
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
     
+    if (!response.ok) throw new Error("Failed to fetch page content");
+    
+    const htmlText = await response.text();
     await analyzeWithOpenAI(htmlText);
     
   } catch (error) {
     console.error("Auto-Fill Error:", error);
-    if (error.message.includes("Failed to fetch") && !proxyEnabled) {
-      alert("Could not fetch the website content due to CORS. Try enabling the CORS Proxy in Settings.");
-    } else {
-      alert(`Error: ${error.message}`);
-    }
+    alert(`Error: ${error.message}. The website may be blocking requests or the URL is invalid.`);
   } finally {
     autoFillBtn.classList.remove("loading");
   }

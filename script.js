@@ -7,6 +7,13 @@ let openaiApiKey = "";
 let openaiModel = "gpt-4o-mini";
 let aiScrapingEnabled = true;
 
+// CORS Proxy services to try in order
+const CORS_PROXIES = [
+  { name: "AllOrigins", url: (targetUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}` },
+  { name: "CorsProxy.io", url: (targetUrl) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` },
+  { name: "CodeTabs", url: (targetUrl) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}` }
+];
+
 // ============================================
 // DOM Elements
 // ============================================
@@ -35,6 +42,8 @@ const openaiApiKeyInput = document.getElementById("openaiApiKey");
 const openaiModelInput = document.getElementById("openaiModel");
 const enableAiScrapingInput = document.getElementById("enableAiScraping");
 const validateApiKeyBtn = document.getElementById("validateApiKeyBtn");
+const pasteNameBtn = document.getElementById("pasteNameBtn");
+const pastePriceBtn = document.getElementById("pastePriceBtn");
 const autoFillBtn = document.getElementById("autoFillBtn");
 
 // ============================================
@@ -80,6 +89,10 @@ function attachEventListeners() {
 
   // API Key Validation
   validateApiKeyBtn.addEventListener("click", validateApiKey);
+
+  // Clipboard Paste
+  pasteNameBtn.addEventListener("click", () => pasteFromClipboard(itemNameInput));
+  pastePriceBtn.addEventListener("click", () => pasteFromClipboard(itemPriceInput));
 
   // Auto-Fill
   autoFillBtn.addEventListener("click", handleAutoFill);
@@ -598,21 +611,81 @@ async function handleAutoFill() {
 
   autoFillBtn.classList.add("loading");
   
+  let htmlText = "";
+  let successfulProxy = null;
+  
+  // Try each proxy in sequence
+  for (const proxy of CORS_PROXIES) {
+    try {
+      console.log(`Trying ${proxy.name}...`);
+      const proxyUrl = proxy.url(url);
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) throw new Error(`${proxy.name} failed with status ${response.status}`);
+      
+      htmlText = await response.text();
+      
+      // Check if we got a real page (not a Cloudflare challenge)
+      if (htmlText.includes('Just a moment') || htmlText.includes('cf-browser-verification')) {
+        console.log(`${proxy.name} returned Cloudflare challenge, trying next...`);
+        continue;
+      }
+      
+      successfulProxy = proxy.name;
+      console.log(`${proxy.name} succeeded!`);
+      break;
+      
+    } catch (error) {
+      console.error(`${proxy.name} error:`, error.message);
+      // Continue to next proxy
+    }
+  }
+  
+  if (!htmlText || !successfulProxy) {
+    autoFillBtn.classList.remove("loading");
+    alert("Unable to fetch the website. All proxies failed or the site is heavily protected (Cloudflare). Try using the clipboard paste buttons instead.");
+    return;
+  }
+  
   try {
-    // Use public CORS proxy
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    
-    if (!response.ok) throw new Error("Failed to fetch page content");
-    
-    const htmlText = await response.text();
     await analyzeWithOpenAI(htmlText);
-    
+    showNotification(`✓ Auto-filled using ${successfulProxy}!`);
   } catch (error) {
     console.error("Auto-Fill Error:", error);
-    alert(`Error: ${error.message}. The website may be blocking requests or the URL is invalid.`);
+    alert(`Error analyzing content: ${error.message}`);
   } finally {
     autoFillBtn.classList.remove("loading");
+  }
+}
+
+async function pasteFromClipboard(targetInput) {
+  try {
+    const text = await navigator.clipboard.readText();
+    
+    if (!text) {
+      alert("Clipboard is empty.");
+      return;
+    }
+    
+    // If pasting to price field, try to extract just the number
+    if (targetInput === itemPriceInput) {
+      // Remove currency symbols, commas, and extract number
+      const numberMatch = text.match(/[\d,]+\.?\d*/);  
+      if (numberMatch) {
+        const cleanNumber = numberMatch[0].replace(/,/g, '');
+        targetInput.value = cleanNumber;
+      } else {
+        targetInput.value = text;
+      }
+    } else {
+      targetInput.value = text;
+    }
+    
+    showNotification("✓ Pasted from clipboard!");
+    
+  } catch (error) {
+    console.error("Clipboard error:", error);
+    alert("Unable to access clipboard. Please ensure you've granted clipboard permissions.");
   }
 }
 

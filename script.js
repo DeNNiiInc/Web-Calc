@@ -719,10 +719,13 @@ async function fetchAndPopulateModels() {
     return;
   }
   
+  // Get API key from input field (in case it's not saved yet)
+  const apiKeyToUse = openaiApiKeyInput.value.trim() || openaiApiKey;
+  
   // Fetch fresh models if we have an API key
-  if (openaiApiKey) {
+  if (apiKeyToUse) {
     try {
-      const models = await fetchAvailableModels();
+      const models = await fetchAvailableModels(apiKeyToUse);
       
       // Cache the results
       localStorage.setItem("openaiModelsCache", JSON.stringify(models));
@@ -741,11 +744,11 @@ async function fetchAndPopulateModels() {
   }
 }
 
-async function fetchAvailableModels() {
+async function fetchAvailableModels(apiKey) {
   const response = await fetch("https://api.openai.com/v1/models", {
     method: "GET",
     headers: {
-      "Authorization": `Bearer ${openaiApiKey}`
+      "Authorization": `Bearer ${apiKey}`
     }
   });
   

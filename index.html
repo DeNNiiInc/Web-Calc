@@ -42,6 +42,9 @@
             Watch on YouTube @beyondcloudtechnology
           </a>
         </div>
+        <button id="settingsBtn" class="settings-btn" title="Settings">
+          ⚙️
+        </button>
       </header>
 
       <!-- Main Content -->
@@ -59,6 +62,9 @@
                 placeholder="https://example.com/product"
                 aria-label="Product URL"
               />
+              <button type="button" id="autoFillBtn" class="btn-icon-only" title="Auto-fill with AI">
+                🪄
+              </button>
             </div>
 
             <div class="form-group">
@@ -215,6 +221,40 @@
           &copy; 2025 Beyond Cloud Technology. All rights reserved.
         </p>
       </footer>
+    </div>
+
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="openaiApiKey" class="form-label">OpenAI API Key</label>
+            <input type="password" id="openaiApiKey" class="form-input" placeholder="sk-..." />
+            <p class="help-text">Your key is stored locally in your browser.</p>
+          </div>
+          <div class="form-group">
+            <label for="openaiModel" class="form-label">OpenAI Model</label>
+            <select id="openaiModel" class="form-input">
+              <option value="gpt-4o-mini" selected>gpt-4o-mini (Recommended)</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+            </select>
+          </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="enableAiScraping" checked />
+            <label for="enableAiScraping">Enable AI Auto-Fill</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+        </div>
+      </div>
     </div>
 
     <script src="script.js"></script>

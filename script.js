@@ -3,6 +3,9 @@
 // ============================================
 let items = [];
 let marginPercentage = 10;
+let openaiApiKey = "";
+let openaiModel = "gpt-4o-mini";
+let aiScrapingEnabled = true;
 
 // ============================================
 // DOM Elements
@@ -24,6 +27,14 @@ const exportPdfBtn = document.getElementById("exportPdfBtn");
 const importJsonBtn = document.getElementById("importJsonBtn");
 const importFile = document.getElementById("importFile");
 const clearAllBtn = document.getElementById("clearAllBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsModal = document.getElementById("settingsModal");
+const closeModalBtn = document.querySelector(".close-modal");
+const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+const openaiApiKeyInput = document.getElementById("openaiApiKey");
+const openaiModelInput = document.getElementById("openaiModel");
+const enableAiScrapingInput = document.getElementById("enableAiScraping");
+const autoFillBtn = document.getElementById("autoFillBtn");
 
 // ============================================
 // Initialization
@@ -57,6 +68,17 @@ function attachEventListeners() {
 
   // Clear all button
   clearAllBtn.addEventListener("click", handleClearAll);
+
+  // Settings Modal
+  settingsBtn.addEventListener("click", openSettingsModal);
+  closeModalBtn.addEventListener("click", closeSettingsModal);
+  saveSettingsBtn.addEventListener("click", saveSettings);
+  window.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettingsModal();
+  });
+
+  // Auto-Fill
+  autoFillBtn.addEventListener("click", handleAutoFill);
 }
 
 // ============================================
@@ -235,6 +257,9 @@ function saveToLocalStorage() {
   try {
     localStorage.setItem("pricingCalcItems", JSON.stringify(items));
     localStorage.setItem("pricingCalcMargin", marginPercentage.toString());
+    localStorage.setItem("pricingCalcApiKey", openaiApiKey);
+    localStorage.setItem("pricingCalcModel", openaiModel);
+    localStorage.setItem("pricingCalcAiEnabled", aiScrapingEnabled.toString());
   } catch (error) {
     console.error("Error saving to localStorage:", error);
   }
@@ -244,6 +269,9 @@ function loadFromLocalStorage() {
   try {
     const savedItems = localStorage.getItem("pricingCalcItems");
     const savedMargin = localStorage.getItem("pricingCalcMargin");
+    const savedApiKey = localStorage.getItem("pricingCalcApiKey");
+    const savedModel = localStorage.getItem("pricingCalcModel");
+    const savedAiEnabled = localStorage.getItem("pricingCalcAiEnabled");
 
     if (savedItems) {
       items = JSON.parse(savedItems);
@@ -253,6 +281,21 @@ function loadFromLocalStorage() {
       marginPercentage = parseInt(savedMargin);
       marginSlider.value = marginPercentage;
       marginValue.textContent = `${marginPercentage}%`;
+    }
+
+    if (savedApiKey) {
+      openaiApiKey = savedApiKey;
+      openaiApiKeyInput.value = savedApiKey;
+    }
+
+    if (savedModel) {
+      openaiModel = savedModel;
+      openaiModelInput.value = savedModel;
+    }
+
+    if (savedAiEnabled !== null) {
+      aiScrapingEnabled = savedAiEnabled === "true";
+      enableAiScrapingInput.checked = aiScrapingEnabled;
     }
   } catch (error) {
     console.error("Error loading from localStorage:", error);
@@ -461,6 +504,119 @@ function importFromJSON(e) {
   };
   
   reader.readAsText(file);
+}
+
+// ============================================
+// AI Auto-Fill Functions
+// ============================================
+function openSettingsModal() {
+  settingsModal.classList.add("show");
+  openaiApiKeyInput.value = openaiApiKey;
+  openaiModelInput.value = openaiModel;
+  enableAiScrapingInput.checked = aiScrapingEnabled;
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.remove("show");
+}
+
+function saveSettings() {
+  openaiApiKey = openaiApiKeyInput.value.trim();
+  openaiModel = openaiModelInput.value;
+  aiScrapingEnabled = enableAiScrapingInput.checked;
+  
+  saveToLocalStorage();
+  closeSettingsModal();
+  showNotification("Settings saved successfully!");
+}
+
+async function handleAutoFill() {
+  if (!aiScrapingEnabled) {
+    alert("AI Auto-Fill is disabled. Enable it in Settings.");
+    return;
+  }
+
+  if (!openaiApiKey) {
+    alert("Please enter your OpenAI API Key in Settings.");
+    openSettingsModal();
+    return;
+  }
+
+  const url = itemUrlInput.value.trim();
+  if (!url) {
+    alert("Please enter a Product URL first.");
+    return;
+  }
+
+  autoFillBtn.classList.add("loading");
+  
+  try {
+    // Note: This fetch will likely fail due to CORS on most sites
+    // unless the user is using a CORS proxy or a CORS-friendly site.
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch page content");
+    
+    const htmlText = await response.text();
+    await analyzeWithOpenAI(htmlText);
+    
+  } catch (error) {
+    console.error("Auto-Fill Error:", error);
+    if (error.message.includes("Failed to fetch")) {
+      alert("Could not fetch the website content. This is likely due to browser security restrictions (CORS). Try a different site or manually enter the details.");
+    } else {
+      alert(`Error: ${error.message}`);
+    }
+  } finally {
+    autoFillBtn.classList.remove("loading");
+  }
+}
+
+async function analyzeWithOpenAI(htmlContent) {
+  // Truncate HTML to avoid token limits (taking first 15000 chars is usually enough for meta tags and main content)
+  const truncatedHtml = htmlContent.substring(0, 15000);
+
+  const systemPrompt = `
+    You are a helpful assistant that extracts product information from HTML.
+    Find the product name and price.
+    Return ONLY a JSON object with keys "name" (string) and "price" (number).
+    If you cannot find them, return null for that field.
+    Example: {"name": "Product X", "price": 19.99}
+  `;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: openaiModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Extract data from this HTML:\n\n${truncatedHtml}` }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    const result = JSON.parse(data.choices[0].message.content);
+    
+    if (result.name) itemNameInput.value = result.name;
+    if (result.price) itemPriceInput.value = result.price;
+    
+    showNotification("Auto-filled successfully!");
+    
+  } catch (error) {
+    console.error("OpenAI API Error:", error);
+    throw new Error("Failed to analyze content with AI: " + error.message);
+  }
 }
 
 // ============================================

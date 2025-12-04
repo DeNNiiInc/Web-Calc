@@ -4,7 +4,7 @@
 let items = [];
 let marginPercentage = 10;
 let openaiApiKey = "";
-let openaiModel = "gpt-4o-mini"; // Cheapest and most appropriate for simple scraping tasks
+let openaiModel = "gpt-5-nano"; // Cheapest GPT-5 model, best for simple scraping tasks
 let aiScrapingEnabled = true;
 
 // CORS Proxy services to try in order
@@ -16,10 +16,10 @@ const CORS_PROXIES = [
 
 // Default fallback models
 const DEFAULT_MODELS = [
-  { id: "gpt-4o-mini", name: "gpt-4o-mini (Best for this task)" },
-  { id: "gpt-4o", name: "gpt-4o" },
-  { id: "gpt-4-turbo", name: "gpt-4-turbo" },
-  { id: "gpt-3.5-turbo", name: "gpt-3.5-turbo" }
+  { id: "gpt-5-nano", name: "gpt-5-nano (Recommended)" },
+  { id: "gpt-5-mini", name: "gpt-5-mini" },
+  { id: "gpt-4.1-nano", name: "gpt-4.1-nano" },
+  { id: "gpt-4o-mini", name: "gpt-4o-mini" }
 ];
 
 // ============================================

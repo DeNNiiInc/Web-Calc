@@ -1159,3 +1159,194 @@ function handleClearAll() {
 function updateItemCount() {
   itemCountSpan.textContent = `(${items.length})`;
 }
+
+// ============================================
+// Export Functions
+// ============================================
+
+// Export to CSV
+function exportToCSV() {
+  if (items.length === 0) {
+    showToast("No items to export", "warning");
+    return;
+  }
+
+  const headers = ["Product Name", "Price (INC GST)", "URL"];
+  const csvContent = [
+    headers.join(","),
+    ...items.map(item => [
+      `"${item.name.replace(/"/g, '""')}"`,
+      item.price.toFixed(2),
+      `"${item.url || ''}"`
+    ].join(","))
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute("href", url);
+  link.setAttribute("download", `pricing-calculator-${Date.now()}.csv`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("Exported to CSV successfully!", "success");
+}
+
+// Export to JSON
+function exportToJSON() {
+  if (items.length === 0) {
+    showToast("No items to export", "warning");
+    return;
+  }
+
+  const data = {
+    items: items,
+    marginPercentage: marginPercentage,
+    exportDate: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute("href", url);
+  link.setAttribute("download", `pricing-calculator-${Date.now()}.json`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("Exported to JSON successfully!", "success");
+}
+
+// Import from JSON
+function importFromJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = JSON.parse(event.target.result);
+      
+      if (data.items && Array.isArray(data.items)) {
+        items = data.items;
+        if (data.marginPercentage !== undefined) {
+          marginPercentage = data.marginPercentage;
+          marginSlider.value = marginPercentage;
+          marginValue.textContent = `${marginPercentage}%`;
+        }
+        saveToLocalStorage();
+        renderItems();
+        updateSummary();
+        showToast(`Imported ${items.length} items successfully!`, "success");
+      } else {
+        showToast("Invalid JSON format", "error");
+      }
+    } catch (error) {
+      showToast("Error reading file", "error");
+      console.error("Import error:", error);
+    }
+  };
+  
+  reader.readAsText(file);
+  e.target.value = ""; // Reset file input
+}
+
+// Export to PDF
+function exportToPDF() {
+  if (items.length === 0) {
+    showToast("No items to export", "warning");
+    return;
+  }
+
+  const base = calculateBaseTotal();
+  const margin = calculateMargin(base);
+  const final = base + margin;
+
+  // Create PDF content
+  const pdfContent = document.createElement("div");
+  pdfContent.style.padding = "20px";
+  pdfContent.style.fontFamily = "Arial, sans-serif";
+  pdfContent.style.color = "#000";
+  pdfContent.style.backgroundColor = "#fff";
+
+  pdfContent.innerHTML = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="color: #667eea; margin-bottom: 10px;">Beyond Cloud Technology</h1>
+      <h2 style="color: #333; margin-top: 0;">Pricing Calculator Report</h2>
+      <p style="color: #666; font-size: 14px;">Generated: ${new Date().toLocaleString()}</p>
+    </div>
+
+    <div style="margin-bottom: 30px;">
+      <h3 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Items List</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+          <tr style="background-color: #f0f0f0;">
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Product Name</th>
+            <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Price (INC GST)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">${escapeHtml(item.name)}</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">$${item.price.toFixed(2)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 30px; padding: 20px; background-color: #f9f9f9; border-radius: 8px;">
+      <h3 style="color: #667eea; margin-top: 0;">Price Summary</h3>
+      <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;">
+        <span style="font-weight: bold;">Base Total:</span>
+        <span>$${base.toFixed(2)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;">
+        <span style="font-weight: bold;">Margin (${marginPercentage}%):</span>
+        <span>$${margin.toFixed(2)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 15px 0; font-size: 18px; font-weight: bold; color: #667eea;">
+        <span>Final Total:</span>
+        <span>$${final.toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; text-align: center; color: #999; font-size: 12px;">
+      <p>© ${new Date().getFullYear()} Beyond Cloud Technology. All rights reserved.</p>
+      <p>YouTube: @beyondcloudtechnology</p>
+    </div>
+  `;
+
+  // Append to body temporarily
+  document.body.appendChild(pdfContent);
+
+  // PDF options
+  const opt = {
+    margin: 10,
+    filename: `pricing-calculator-${Date.now()}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+  };
+
+  // Generate PDF
+  html2pdf()
+    .set(opt)
+    .from(pdfContent)
+    .save()
+    .then(() => {
+      document.body.removeChild(pdfContent);
+      showToast("PDF exported successfully!", "success");
+    })
+    .catch((error) => {
+      document.body.removeChild(pdfContent);
+      showToast("Error generating PDF", "error");
+      console.error("PDF error:", error);
+    });
+}

@@ -105,8 +105,15 @@
 
             <button type="submit" class="btn btn-primary" id="addItemBtn">
               <span class="btn-icon">+</span>
-              Add Item
+              <span id="addItemBtnText">Add Item</span>
             </button>
+            <button type="button" class="btn btn-secondary" id="cancelEditBtn" style="display: none;">
+              Cancel
+            </button>
+            <div class="quick-add-toggle">
+              <input type="checkbox" id="quickAddMode" />
+              <label for="quickAddMode">Keep form open after adding</label>
+            </div>
           </form>
         </section>
 
@@ -166,8 +173,16 @@
         <!-- Items List Section -->
         <section class="items-section">
           <div class="items-header">
-            <h2 class="section-title">Items List</h2>
+            <h2 class="section-title">Items List <span id="itemCount" class="item-count">(0)</span></h2>
             <div class="items-actions">
+              <button
+                class="btn btn-danger"
+                id="clearAllBtn"
+                title="Clear all items"
+              >
+                <span class="btn-icon">🗑️</span>
+                Clear All
+              </button>
               <button
                 class="btn btn-secondary"
                 id="exportJsonBtn"
@@ -201,14 +216,6 @@
                 Export PDF
               </button>
               <input type="file" id="importFile" accept=".json" style="display: none;" />
-              <button
-                class="btn btn-danger"
-                id="clearAllBtn"
-                title="Clear all items"
-              >
-                <span class="btn-icon">🗑️</span>
-                Clear All
-              </button>
             </div>
           </div>
 
@@ -224,6 +231,9 @@
           </div>
         </section>
       </main>
+
+      <!-- Toast Notification Container -->
+      <div id="toastContainer" class="toast-container"></div>
 
       <!-- Footer -->
       <footer class="footer">

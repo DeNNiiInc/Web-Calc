@@ -563,10 +563,14 @@ body::before {
   display: flex;
   gap: var(--spacing-xs);
   margin-top: var(--spacing-md);
+  flex-wrap: wrap; /* Allow buttons to wrap if needed */
 }
 
 .item-actions .btn {
   flex: 1;
+  min-width: 80px; /* Prevent buttons from becoming too narrow */
+  white-space: nowrap; /* Prevent text wrapping inside button */
+  justify-content: center;
 }
 
 /* Empty State */

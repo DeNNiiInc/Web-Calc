@@ -37,7 +37,7 @@ const itemsList = document.getElementById("itemsList");
 const baseTotal = document.getElementById("baseTotal");
 const marginAmount = document.getElementById("marginAmount");
 const finalTotal = document.getElementById("finalTotal");
-const itemCount = document.getElementById("itemCount");
+// itemCount is defined below as itemCountSpan to avoid confusion
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const exportJsonBtn = document.getElementById("exportJsonBtn");
 const exportPdfBtn = document.getElementById("exportPdfBtn");
@@ -61,7 +61,6 @@ const quickAddModeCheckbox = document.getElementById("quickAddMode");
 const addItemBtnText = document.getElementById("addItemBtnText");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const itemCountSpan = document.getElementById("itemCount");
-const clearAllBtn = document.getElementById("clearAllBtn");
 const toastContainer = document.getElementById("toastContainer");
 
 // ============================================
@@ -319,7 +318,7 @@ function updateSummary() {
   baseTotal.textContent = `$${base.toFixed(2)}`;
   marginAmount.textContent = `$${margin.toFixed(2)}`;
   finalTotal.textContent = `$${final.toFixed(2)}`;
-  itemCount.textContent = items.length;
+  // Item count is handled by updateItemCount() called in renderItems()
 }
 
 // ============================================
@@ -1156,8 +1155,12 @@ function handleClearAll() {
 }
 
 // Update Item Count
+// Update Item Count
 function updateItemCount() {
-  itemCountSpan.textContent = `(${items.length})`;
+  const span = document.getElementById("itemCount");
+  if (span) {
+    span.textContent = `(${items.length})`;
+  }
 }
 
 // ============================================

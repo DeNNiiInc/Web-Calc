@@ -6,6 +6,8 @@ let marginPercentage = 10;
 let openaiApiKey = "";
 let openaiModel = "gpt-5-nano"; // Cheapest GPT-5 model, best for simple scraping tasks
 let aiScrapingEnabled = true;
+let quickAddMode = false; // Quick Add Mode state
+let editingIndex = -1; // Track which item is being edited (-1 = none)
 
 // CORS Proxy services to try in order
 const CORS_PROXIES = [
@@ -53,6 +55,14 @@ const validateApiKeyBtn = document.getElementById("validateApiKeyBtn");
 const pasteNameBtn = document.getElementById("pasteNameBtn");
 const pastePriceBtn = document.getElementById("pastePriceBtn");
 const autoFillBtn = document.getElementById("autoFillBtn");
+
+// UX Improvement Elements
+const quickAddModeCheckbox = document.getElementById("quickAddMode");
+const addItemBtnText = document.getElementById("addItemBtnText");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
+const itemCountSpan = document.getElementById("itemCount");
+const clearAllBtn = document.getElementById("clearAllBtn");
+const toastContainer = document.getElementById("toastContainer");
 
 // ============================================
 // Initialization
@@ -104,6 +114,25 @@ function attachEventListeners() {
 
   // Auto-Fill
   autoFillBtn.addEventListener("click", handleAutoFill);
+
+  // UX Improvements - Quick Add Mode
+  quickAddModeCheckbox.addEventListener("change", (e) => {
+    quickAddMode = e.target.checked;
+    localStorage.setItem("quickAddMode", quickAddMode);
+  });
+
+  // UX Improvements - Cancel Edit
+  cancelEditBtn.addEventListener("click", cancelEdit);
+
+  // UX Improvements - Keyboard Shortcuts
+  document.addEventListener("keydown", handleKeyboardShortcuts);
+
+  // Load Quick Add preference
+  const savedQuickAdd = localStorage.getItem("quickAddMode");
+  if (savedQuickAdd !== null) {
+    quickAddMode = savedQuickAdd === "true";
+    quickAddModeCheckbox.checked = quickAddMode;
+  }
 }
 
 // ============================================
@@ -117,10 +146,27 @@ function handleAddItem(e) {
   const price = parseFloat(itemPriceInput.value);
 
   if (!name || isNaN(price) || price < 0) {
-    alert("Please enter a valid product name and price.");
+    showToast("Please enter a valid product name and price", "error");
     return;
   }
 
+  // Check if we're editing an existing item
+  if (editingIndex !== -1) {
+    items[editingIndex] = {
+      ...items[editingIndex],
+      url: url || "",
+      name: name,
+      price: price
+    };
+    saveToLocalStorage();
+    renderItems();
+    updateSummary();
+    showToast("Item updated successfully!", "success");
+    cancelEdit();
+    return;
+  }
+
+  // Adding new item
   const newItem = {
     id: Date.now(),
     url: url || "",
@@ -133,12 +179,19 @@ function handleAddItem(e) {
   renderItems();
   updateSummary();
 
-  // Reset form
-  itemForm.reset();
-  itemNameInput.focus();
-
-  // Add success feedback
-  showNotification("Item added successfully!");
+  // Quick Add Mode: keep form open and auto-focus
+  if (quickAddMode) {
+    itemNameInput.value = "";
+    itemPriceInput.value = "";
+    itemUrlInput.value = "";
+    itemNameInput.focus();
+    showToast("Item added! Ready for next item", "success");
+  } else {
+    // Normal mode: reset form
+    itemForm.reset();
+    itemNameInput.focus();
+    showToast("Item added successfully!", "success");
+  }
 }
 
 function handleEditItem(id) {
@@ -218,7 +271,7 @@ function renderItems() {
 
   itemsList.innerHTML = items
     .map(
-      (item) => `
+      (item, index) => `
         <div class="item-card">
             <div class="item-header">
                 <div>
@@ -234,15 +287,17 @@ function renderItems() {
             </div>
             <div class="item-price">$${item.price.toFixed(2)} <span style="font-size: 0.5em; opacity: 0.7;">INC GST</span></div>
             <div class="item-actions">
-                <button class="btn btn-secondary btn-small" onclick="handleEditItem(${
-                  item.id
-                })">
+                <button class="btn btn-secondary btn-small" onclick="editItem(${index})" title="Edit item">
                     <span class="btn-icon">✏️</span>
                     Edit
                 </button>
+                <button class="btn btn-duplicate btn-small" onclick="duplicateItem(${index})" title="Duplicate item">
+                    <span class="btn-icon">📋</span>
+                    Duplicate
+                </button>
                 <button class="btn btn-danger btn-small" onclick="handleDeleteItem(${
                   item.id
-                })">
+                })" title="Delete item">
                     <span class="btn-icon">🗑️</span>
                     Delete
                 </button>
@@ -251,6 +306,9 @@ function renderItems() {
     `
     )
     .join("");
+  
+  // Update item count
+  updateItemCount();
 }
 
 function updateSummary() {
@@ -964,3 +1022,140 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ============================================
+// UX Improvements Functions
+// ============================================
+
+// Toast Notification System
+function showToast(message, type = "info") {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: "✓",
+    error: "✗",
+    info: "ℹ",
+    warning: "⚠"
+  };
+  
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span class="toast-message">${message}</span>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  toastContainer.appendChild(toast);
+  
+  // Auto-remove after 4 seconds
+  setTimeout(() => {
+    toast.classList.add("removing");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// Keyboard Shortcuts Handler
+function handleKeyboardShortcuts(e) {
+  // Esc - Close modals
+  if (e.key === "Escape") {
+    if (settingsModal.classList.contains("show")) {
+      closeSettingsModal();
+    }
+    if (editingIndex !== -1) {
+      cancelEdit();
+    }
+  }
+  
+  // Ctrl/Cmd + S - Save settings
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    e.preventDefault();
+    if (settingsModal.classList.contains("show")) {
+      saveSettings();
+    }
+  }
+  
+  // Enter in form - Submit
+  if (e.key === "Enter" && e.target.closest("#itemForm")) {
+    e.preventDefault();
+    itemForm.dispatchEvent(new Event("submit"));
+  }
+}
+
+// Edit Item Function
+function editItem(index) {
+  const item = items[index];
+  
+  // Populate form
+  itemNameInput.value = item.name;
+  itemPriceInput.value = item.price;
+  itemUrlInput.value = item.url || "";
+  
+  // Update UI for edit mode
+  editingIndex = index;
+  addItemBtnText.textContent = "Update Item";
+  addItemBtn.querySelector(".btn-icon").textContent = "✓";
+  cancelEditBtn.style.display = "inline-block";
+  
+  // Highlight the item being edited
+  document.querySelectorAll(".item-card").forEach((card, i) => {
+    card.classList.toggle("editing", i === index);
+  });
+  
+  // Scroll to form
+  itemForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  itemNameInput.focus();
+}
+
+// Cancel Edit Function
+function cancelEdit() {
+  editingIndex = -1;
+  itemForm.reset();
+  addItemBtnText.textContent = "Add Item";
+  addItemBtn.querySelector(".btn-icon").textContent = "+";
+  cancelEditBtn.style.display = "none";
+  
+  // Remove editing highlight
+  document.querySelectorAll(".item-card").forEach(card => {
+    card.classList.remove("editing");
+  });
+}
+
+// Duplicate Item Function
+function duplicateItem(index) {
+  const item = items[index];
+  const duplicatedItem = {
+    id: Date.now(),
+    name: `${item.name} (Copy)`,
+    price: item.price,
+    url: item.url || ""
+  };
+  
+  items.push(duplicatedItem);
+  saveToLocalStorage();
+  renderItems();
+  updateSummary();
+  showToast(`Duplicated "${item.name}"`, "success");
+}
+
+// Clear All Items with Confirmation
+function handleClearAll() {
+  if (items.length === 0) {
+    showToast("No items to clear", "info");
+    return;
+  }
+  
+  const confirmed = confirm(`Are you sure you want to delete all ${items.length} items? This cannot be undone.`);
+  
+  if (confirmed) {
+    items = [];
+    saveToLocalStorage();
+    renderItems();
+    updateSummary();
+    showToast("All items cleared", "success");
+  }
+}
+
+// Update Item Count
+function updateItemCount() {
+  itemCountSpan.textContent = `(${items.length})`;
+}
